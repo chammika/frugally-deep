@@ -331,6 +331,20 @@ def show_prelu_layer(layer):
     }
     return result
 
+def show_lstm_layer(layer):
+    """Serialize LSTM layer to dict"""
+    weights = layer.get_weights()
+    assert len(weights) >= 2
+    assert len(weights[0].shape) == 2 and len(weights[1].shape) == 2
+    result = {
+        'weights': encode_floats(weights[0].flatten()),
+        'recurrent_weights': encode_floats(weights[1].flatten())
+    }
+    if len(weights) == 3:
+        assert len(weights[2].shape) == 1
+        result['bias'] = encode_floats(weights[2])
+    return result
+
 def get_dict_keys(d):
     """Return keys of a dictionary"""
     return [key for key in d]
@@ -366,7 +380,8 @@ def get_all_weights(model):
         'DepthwiseConv2D': show_depthwise_conv_2d_layer,
         'BatchNormalization': show_batch_normalization_layer,
         'Dense': show_dense_layer,
-        'PReLU': show_prelu_layer
+        'PReLU': show_prelu_layer,
+        'LSTM': show_lstm_layer,
     }
     result = {}
     layers = model.layers

@@ -492,6 +492,33 @@ inline layer_ptr create_dense_layer(const get_param_f& get_param,
         name, units, weights, bias);
 }
 
+inline layer_ptr create_lstm_layer(const get_param_f& get_param,
+    const get_global_param_f&, const nlohmann::json& data,
+    const std::string& name)
+{
+    const float_vec weights = decode_floats(get_param(name, "weights"));
+    const float_vec recurrent_weights = decode_floats(get_param(name, "recurrent_weights"));
+    const std::string activation = data["config"]["activation"];
+    const std::string recurrent_activation = data["config"]["recurrent_activation"];
+
+    std::size_t units = data["config"]["units"];
+    // weights shape (n_features, 4*units)
+    std::size_t n_features = weights.size()/(units*4);
+    // recurrent_weights shape (units, 4*units)
+    assertion(recurrent_weights.size() == 4*units*units, "size of recurrent weights does not match");
+
+    float_vec bias(units, 0);
+    const bool use_bias = data["config"]["use_bias"];
+    const bool return_sequences = data["config"]["return_sequences"];
+    if (use_bias)
+        bias = decode_floats(get_param(name, "bias"));
+    assertion(bias.size() == 4*units, "size of bias does not match");
+
+    return std::make_shared<lstm_layer>(name, units, activation, recurrent_activation,
+                                        use_bias, return_sequences, weights, recurrent_weights, bias);
+
+}
+
 inline layer_ptr create_concatenate_layer(
     const get_param_f&, const get_global_param_f&, const nlohmann::json& data,
     const std::string& name)
@@ -842,7 +869,8 @@ inline layer_ptr create_layer(const get_param_f& get_param,
             {"Cropping1D", create_cropping_2d_layer},
             {"Cropping2D", create_cropping_2d_layer},
             {"Activation", create_activation_layer},
-            {"Reshape", create_reshape_layer}
+            {"Reshape", create_reshape_layer},
+            {"LSTM", create_lstm_layer}
         };
 
     const std::string type = data["class_name"];

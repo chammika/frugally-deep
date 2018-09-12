@@ -19,6 +19,7 @@ from keras.layers import GlobalAveragePooling2D, GlobalMaxPooling2D
 from keras.layers import SeparableConv2D, Conv2DTranspose, DepthwiseConv2D
 from keras.layers import LeakyReLU, ELU, PReLU
 from keras.layers import BatchNormalization, Concatenate
+from keras.layers import LSTM
 from keras import backend as K
 
 __author__ = "Tobias Hermann"
@@ -114,6 +115,21 @@ def get_test_model_small():
     model.fit(data_in, data_out, epochs=10)
     return model
 
+def get_test_model_recurrent():
+    """Returns a minimalistic test models for recurrent layers."""
+    batch_size = 1
+    seq_len = 3
+    n_features = 5
+    units = 4
+    return_sequence = False
+    stateful = False
+
+    inp = Input(shape=(seq_len, n_features))  # batch_size needed for stateful models
+    lstm = LSTM(units, return_sequences=return_sequence, stateful=stateful,
+                bias_initializer='random_uniform',  # default is zero use random to test computation
+                name="lstm")(inp)
+    model = Model(inputs=[inp], outputs=[lstm])
+    return model
 
 def get_test_model_variable():
     """Returns a small model for variably shaped input tensors."""
@@ -425,12 +441,13 @@ def main():
 
         get_model_functions = {
             'small': get_test_model_small,
+            'recurrent': get_test_model_recurrent,
             'variable': get_test_model_variable,
             'sequential': get_test_model_sequential,
             'full': get_test_model_full
         }
 
-        if not model_name in get_model_functions:
+        if model_name not in get_model_functions:
             print('unknown model name: ', model_name)
             sys.exit(2)
 
