@@ -20,7 +20,7 @@ class model
 {
 public:
     // A single forward pass.
-    tensor3s predict(const tensor3s& inputs) const
+    tensor3s predict(const tensor3s& inputs, bool apply_sequence= false) const
     {
         const auto input_shapes = fplus::transform(
             fplus_c_mem_fn_t(tensor3, shape, shape3),
@@ -30,7 +30,7 @@ public:
             std::string("Invalid inputs shape.\n") +
                 "The model takes " + show_shape3s_variable(get_input_shapes()) +
                 " but you provided: " + show_shape3s(input_shapes));
-        const auto outputs = model_layer_->apply(inputs);
+        const auto outputs = model_layer_->apply(inputs, apply_sequence);
         return outputs;
     }
 

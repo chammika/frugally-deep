@@ -37,6 +37,39 @@ public:
             "layer names must be unique");
     }
 
+
+    tensor3s apply(const tensor3s& inputs, bool apply_sequence= false) const
+    {
+        output_dict output_cache;
+
+        if (apply_sequence)
+        {
+            for (std::size_t i = 0; i < input_connections_.size(); ++i)
+            {
+                output_cache[input_connections_[i].without_tensor_idx()] = inputs;
+            }
+        }
+        else {
+            assertion(inputs.size() == input_connections_.size(),
+                      "invalid number of input tensors for this model: " +
+                      fplus::show(input_connections_.size()) + " required but " +
+                      fplus::show(inputs.size()) + " provided");
+
+            for (std::size_t i = 0; i < input_connections_.size(); ++i)
+            {
+                output_cache[input_connections_[i].without_tensor_idx()] = {inputs[i]};
+            }
+        }
+
+        const auto get_output = [this, &output_cache]
+                (const node_connection& conn) -> tensor3
+        {
+            return get_layer(layers_, conn.layer_id_)->get_output(
+                    layers_, output_cache, conn.node_idx_, conn.tensor_idx_);
+        };
+        return fplus::transform(get_output, output_connections_);
+    }
+
     tensor3 get_output(const layer_ptrs& layers, output_dict& output_cache,
         std::size_t node_idx, std::size_t tensor_idx) const override
     {
@@ -49,27 +82,9 @@ public:
 protected:
     tensor3s apply_impl(const tensor3s& inputs) const override
     {
-        output_dict output_cache;
-
-        assertion(inputs.size() == input_connections_.size(),
-            "invalid number of input tensors for this model: " +
-            fplus::show(input_connections_.size()) + " required but " +
-            fplus::show(inputs.size()) + " provided");
-
-        for (std::size_t i = 0; i < inputs.size(); ++i)
-        {
-            output_cache[input_connections_[i].without_tensor_idx()] =
-                {inputs[i]};
-        }
-
-        const auto get_output = [this, &output_cache]
-            (const node_connection& conn) -> tensor3
-        {
-            return get_layer(layers_, conn.layer_id_)->get_output(
-                layers_, output_cache, conn.node_idx_, conn.tensor_idx_);
-        };
-        return fplus::transform(get_output, output_connections_);
+        apply(inputs); // Shouldn't call this directly.... use instead -apply for the model-layer
     }
+
     layer_ptrs layers_;
     node_connections input_connections_;
     node_connections output_connections_;

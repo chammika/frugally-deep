@@ -50,13 +50,19 @@ public:
         nodes_ = layer_nodes;
     }
 
-    virtual tensor3s apply(const tensor3s& input) const final
+    virtual tensor3s apply(const tensor3s& inputs) const final
     {
-        const auto result = apply_impl(input);
+        const auto result = apply_impl(inputs);
         if (activation_ == nullptr)
             return result;
         else
             return apply_activation_layer(activation_, result);
+    }
+
+    virtual tensor3s apply(const tensor3s& inputs, bool apply_sequence) const
+    {
+        (apply_sequence) ;
+        return apply(inputs);
     }
 
     virtual tensor3 get_output(const layer_ptrs& layers,
