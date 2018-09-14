@@ -23,6 +23,7 @@ class lstm_layer : public layer
   public:
     explicit lstm_layer(const std::string &name,
                         std::size_t n_units,
+                        std::size_t n_features,
                         const std::string &activation,
                         const std::string &recurrent_activation,
                         bool use_bias,
@@ -35,15 +36,16 @@ class lstm_layer : public layer
           n_units_(n_units),
           activation_(activation),
           recurrent_activation_(recurrent_activation),
+          act_func(get_activation_func(activation)),
+          act_func_recurrent(get_activation_func(recurrent_activation_)),
           use_bias_(use_bias),
           return_sequences_(return_sequences),
-          W_(),
-          U_(),
-          bias_()
+          W_(eigen_mat_from_values(n_features, 4*n_units, weights)),  // weights shape (n_features, 4*units)
+          U_(eigen_mat_from_values(n_units, 4*n_units, recurrent_weights)), // recurrent_weights shape (units, 4*units)
+          bias_(eigen_mat_from_values(1, 4*n_units, bias))
     {
-        // TODO - generate W_ , U_ and bias_ from serialized weights
-        // ...
-        // --redunant--- assertion(bias_.size() == n_units_ * 4, "invalid bias size");
+        // DEBUG
+        std::cout << "weights:\n" << W_ << "\nrecurrent wieghts:\n" << U_ << "\nbais:\n" << bias_ << std::endl;
     }
 
   protected:
@@ -52,7 +54,7 @@ class lstm_layer : public layer
         assertion(inputs.front().shape().width_ == 1, "width dimension must be 1");
         assertion(inputs.front().shape().depth_ == 1, "depth dimension must be 1");
 
-        return {lstm_impl(inputs, W_, U_, bias_, activation_, recurrent_activation_)};
+        return {lstm_impl(inputs)};
     }
 
   private:
@@ -91,12 +93,7 @@ class lstm_layer : public layer
         return {};
     }
 
-    tensor3s lstm_impl(const tensor3s &input,
-                       const RowMajorMatrixXf &W,
-                       const RowMajorMatrixXf &U,
-                       const RowMajorMatrixXf &bias,
-                       const std::string &activation,
-                       const std::string &recurrent_activation) const
+    tensor3s lstm_impl(const tensor3s &input) const
     {
         // initialize cell output states h, and cell memory states c for t-1 with zeros
         RowMajorMatrixXf h_tm1(1, n_units_);
@@ -115,7 +112,7 @@ class lstm_layer : public layer
                 in(EigenIndex(a_t), EigenIndex(a_f)) = input[a_t].get(0, a_f, 0); // TODO - get appropriately
 
         RowMajorMatrixXf X(n_timesteps, n_units_ * 4);
-        X = in * W;
+        X = in * W_;
 
         if (use_bias_)
         {
@@ -123,21 +120,17 @@ class lstm_layer : public layer
             // define eigen vector type to be able to use broadcasting
             typedef Eigen::Matrix<float_type, 1, Eigen::Dynamic> Vector_Xf;
             Vector_Xf b(1, n_units_ * 4);
-            b = bias;
+            b = bias_;
 
             X.rowwise() += b;
         }
-
-        // get activation functions
-        const auto act_func = get_activation_func(activation);
-        const auto act_func_recurrent = get_activation_func(recurrent_activation);
 
         // computing LSTM output
         const EigenIndex n = EigenIndex(n_units_);
         tensor3s result;
         for (EigenIndex k = 0; k < EigenIndex(n_timesteps); ++k)
         {
-            const RowMajorMatrixXf ifco = h_tm1 * U;
+            const RowMajorMatrixXf ifco = h_tm1 * U_;
 
             // Use of Matrix.block(): Block of size (p,q), starting at (i,j) matrix.block(i,j,p,q);  matrix.block<p,q>(i,j);
             const RowMajorMatrixXf i = (X.block(k, 0, 1, n) + ifco.block(0, 0, 1, n)).unaryExpr(act_func_recurrent);
@@ -161,6 +154,8 @@ class lstm_layer : public layer
     const std::size_t n_units_;
     const std::string activation_;
     const std::string recurrent_activation_;
+    const std::function<float_type(float_type)>& act_func;
+    const std::function<float_type(float_type)>& act_func_recurrent;
     const bool use_bias_;
     const bool return_sequences_;
     const RowMajorMatrixXf W_;

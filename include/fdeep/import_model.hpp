@@ -514,7 +514,7 @@ inline layer_ptr create_lstm_layer(const get_param_f& get_param,
         bias = decode_floats(get_param(name, "bias"));
     assertion(bias.size() == 4*units, "size of bias does not match");
 
-    return std::make_shared<lstm_layer>(name, units, activation, recurrent_activation,
+    return std::make_shared<lstm_layer>(name, units, n_features, activation, recurrent_activation,
                                         use_bias, return_sequences, weights, recurrent_weights, bias);
 
 }
